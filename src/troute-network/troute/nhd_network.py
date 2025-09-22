@@ -708,6 +708,9 @@ def  build_subnetworks(connections, rconn, min_size, sources=None):
     # create a list of all headwaters in the network
     all_hws = headwaters(connections)
     subnetwork_master = {}
+    
+    #dictionary of number of segments in each group_order
+   
     for net in sources:
 
         # subnetwork creation using a breadth first search restricted by maximum allowable depth
@@ -718,7 +721,7 @@ def  build_subnetworks(connections, rconn, min_size, sources=None):
         min_size_temp = 100
         while new_sources:
 
-            # Build dict object containing reachable nodes within max_depth from each source in new_sources
+            # Build dict object containing reachable nodes within max_depth from each source in new_sources          
             rv = {}
             for h in new_sources:
                 #also include the head waters of that subnetwork in the rv dictionary
@@ -764,11 +767,18 @@ def  build_subnetworks(connections, rconn, min_size, sources=None):
             
             # append master dictionary
             subnetworks[group_order] = rv
+            
+            if group_order <= 32:
 
-            if (min_size_temp * 1.1) < min_size:  
-                min_size_temp = round(min_size_temp * 1.1)
+                if (min_size_temp * 1.1) < min_size:  
+                    min_size_temp = round(min_size_temp * 1.1)
+                else:
+                    min_size_temp = min_size
             else:
-                min_size_temp = min_size
+                if (min_size_temp * 0.8) > 100:
+                    min_size_temp = round(min_size_temp * 0.8)
+                else:
+                    min_size_temp = 100
             # advance group order
             group_order += 1
 

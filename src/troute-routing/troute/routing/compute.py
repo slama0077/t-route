@@ -609,7 +609,6 @@ def compute_nhd_routing_v02(
                         total_nodes_order_dict[order] += num_nodes
             
             
-            # breakpoint()
             bin_threshold = 1.1  
             reaches_ordered_bysubntw_clustered = defaultdict(dict)
             
