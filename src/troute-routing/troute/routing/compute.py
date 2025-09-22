@@ -15,6 +15,7 @@ from troute.routing.fast_reach import diffusive
 
 import logging
 import heapq
+import csv
 
 
 '''This is the newest version of the compute.py file, which is used to compute the routing for the NHD network.'''
@@ -564,13 +565,15 @@ def compute_nhd_routing_v02(
             subnetworks_only_ordered_jit = defaultdict(dict)
             subnetworks = defaultdict(dict)
             reaches_ordered_bysubntw = defaultdict(dict)
+            total_nodes_order_dict = {}
             for tw, ordered_network in networks_with_subnetworks_ordered_jit.items():
                 intw = independent_networks[tw]
                 for order, subnet_sets in ordered_network.items():
                     subnetworks_only_ordered_jit[order].update(subnet_sets)
+                    num_nodes = 0
                     for subn_tw, subnetwork in subnet_sets.items():
                         subnetworks[subn_tw] = {k: intw[k] for k in subnetwork["reachable_nodes"]}   
-                        
+                        num_nodes += len(subnetwork["reachable_nodes"])
                         if not waterbodies_df.empty and not usgs_df.empty:
                             path_func = partial(
                                 nhd_network.split_at_gages_waterbodies_and_junctions,
@@ -599,17 +602,26 @@ def compute_nhd_routing_v02(
                         reaches_ordered_bysubntw[order][
                             subn_tw
                         ] = nhd_network.dfs_decomposition(subnetworks[subn_tw], path_func)
+                    
+                    if order not in total_nodes_order_dict:
+                        total_nodes_order_dict[order] = num_nodes
+                    else:    
+                        total_nodes_order_dict[order] += num_nodes
             
-
+            
+            # breakpoint()
             bin_threshold = 1.1  
             reaches_ordered_bysubntw_clustered = defaultdict(dict)
+            
+            max_value = max(total_nodes_order_dict.values())
+            # bin-packing algorithm to cluster subnetworks into bins of size
             for order in subnetworks_only_ordered_jit:
             # storing -capcaity as python only has min_heap and we want max_heap
                 heap = []
+                # subnetwork_target_size = 
                 reaches_ordered_bysubntw_clustered[order] = defaultdict(dict)
-
                 cluster_counter = 0
-
+                subnetwork_target_size_temp = total_nodes_order_dict[order] / (max_value/subnetwork_target_size)
                 for twi, (subn_tw, subn_reach_list) in enumerate(
                     reaches_ordered_bysubntw[order].items(), 1
                 ):
@@ -634,7 +646,7 @@ def compute_nhd_routing_v02(
                     # create a cluster when no cluster can fit or initiate the heap when heap is empty
                     cluster = cluster_counter
                     cluster_counter += 1
-                    capacity = (bin_threshold * subnetwork_target_size) - segs_len
+                    capacity = (bin_threshold * subnetwork_target_size_temp) - segs_len
                     reaches_ordered_bysubntw_clustered[order][cluster] = {
                         "segs": segs.copy(),
                         "upstreams": dict(subnetworks[subn_tw]),
@@ -643,6 +655,8 @@ def compute_nhd_routing_v02(
                         "connecting_nodes": list(subnetworks_only_ordered_jit[order][subn_tw]["connecting_nodes"])
                     }
                     heapq.heappush(heap, (-capacity, cluster))
+
+
             # save subnetworks_only_ordered_jit and reaches_ordered_bysubntw_clustered in a list
             # to be passed on to next loop. Create a deep copy of this list to prevent it from being
             # altered before being returned
@@ -654,6 +668,15 @@ def compute_nhd_routing_v02(
         if 1 == 1:
             LOG.info("JIT Preprocessing time %s seconds." % (time.time() - start_time))
             LOG.info("starting Parallel JIT calculation")
+            
+            
+        # save each order, cluster, and number of segments in a csv file, where order, cluster, nsegments are columns in Optimized_Output directory
+        with open('Optimized_Output/subnetwork_clusters.csv', 'w') as f:
+            f.write('order,cluster,nsegments\n')
+            for order in reaches_ordered_bysubntw_clustered:
+                for cluster in reaches_ordered_bysubntw_clustered[order]:
+                    nsegments = len(reaches_ordered_bysubntw_clustered[order][cluster]['segs'])
+                    f.write(f'{order},{cluster},{nsegments}\n')
 
         start_para_time = time.time()
         # if 1 == 1:

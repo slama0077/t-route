@@ -688,7 +688,7 @@ def replace_waterbodies_connections(connections, waterbodies):
     
     return new_conn, link_lake
 
-def build_subnetworks(connections, rconn, min_size, sources=None):
+def  build_subnetworks(connections, rconn, min_size, sources=None):
     """
     Construct subnetworks using a truncated breadth-first-search
 
@@ -707,7 +707,6 @@ def build_subnetworks(connections, rconn, min_size, sources=None):
 
     # create a list of all headwaters in the network
     all_hws = headwaters(connections)
-
     subnetwork_master = {}
     for net in sources:
 
@@ -716,6 +715,7 @@ def build_subnetworks(connections, rconn, min_size, sources=None):
         new_sources = set([net])
         subnetworks = {}
         group_order = 0
+        min_size_temp = 100
         while new_sources:
 
             # Build dict object containing reachable nodes within max_depth from each source in new_sources
@@ -737,7 +737,7 @@ def build_subnetworks(connections, rconn, min_size, sources=None):
                     else:
                         us_depth = y
 
-                    if len(reachable) > min_size:
+                    if len(reachable) > min_size_temp:
                         stop_depth = y
 
                     if us_depth <= stop_depth:
@@ -765,6 +765,10 @@ def build_subnetworks(connections, rconn, min_size, sources=None):
             # append master dictionary
             subnetworks[group_order] = rv
 
+            if (min_size_temp * 1.1) < min_size:  
+                min_size_temp = round(min_size_temp * 1.1)
+            else:
+                min_size_temp = min_size
             # advance group order
             group_order += 1
 
